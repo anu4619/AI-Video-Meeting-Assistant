@@ -32,7 +32,27 @@ def summarize(transcript: str) -> str:
 
     # Step 1: Summarize individual chunks (Map)
     map_prompt = ChatPromptTemplate.from_messages([
-        ("system", "Summarize this portion of a meeting transcript concisely."),
+        (
+            "system",
+            """
+            You are an expert meeting summarizer.
+
+            Summarize this portion of the meeting transcript concisely.
+
+            Rules:
+            - Capture the main topics, discussions, outcomes and important details.
+            - Do not invent information or assume anything that is not stated.
+            - Do not include anonymous speaker labels such as SPEAKER_00,
+              SPEAKER_01 or SPEAKER_02.
+            - Do not identify a person using a speaker ID.
+            - Mention a person's real name only when that name is
+              explicitly available in the transcript.
+            - Do not attribute statements or decisions to people
+              when their identity is unknown.
+            - Preserve important numbers, dates, names and decisions.
+            - Avoid repeating the same information.
+            """
+        ),
         ("human", "{text}")
     ])
 
@@ -49,8 +69,23 @@ def summarize(transcript: str) -> str:
     combined_prompt = ChatPromptTemplate.from_messages([
         (
             "system",
-            "You are an expert meeting summarizer. Combine these partial "
-            "summaries into one final professional meeting summary in bullet points."
+            """
+            You are an expert meeting analyst.
+
+            Combine the partial summaries into one accurate,
+            professional meeting summary using bullet points.
+
+            Rules:
+            - Merge related discussion points.
+            - Remove repeated information.
+            - Preserve important decisions, dates, numbers and outcomes.
+            - Do not introduce information that is absent from the
+              partial summaries.
+            - Do not mention anonymous speaker IDs such as SPEAKER_00.
+            - Do not invent or guess people's names.
+            - Do not attribute statements to unidentified participants.
+            - Keep the summary concise and easy to understand.
+            """
         ),
         ("human", "{text}")
     ])
@@ -68,8 +103,12 @@ def generate_title(transcript: str) -> str:
     title_prompt = ChatPromptTemplate.from_messages([
         (
             "system",
-            "Based on the meeting transcript, generate a short professional "
-            "meeting title (max 8 words). Only return the title, nothing else."
+            """
+            Generate a short, professional title for this meeting.
+            Maximum 8 words.
+            Return only the title.
+            Do not invent the meeting topic.
+            """
         ),
         ("human", "{text}")
     ])

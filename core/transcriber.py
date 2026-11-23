@@ -166,3 +166,53 @@ def transcribe_all(chunks: list, language: str = "english") -> str:
     print("Transcription complete.")
 
     return full_transcript.strip()
+
+
+
+def transcribe_all_with_timestamps(
+    chunks: list,
+    chunk_duration_seconds: int = 600
+) -> list:
+
+    """
+    Transcribe chunks using Whisper and preserve timestamps.
+
+    Each segment contains:
+    start, end, text
+
+    Timestamps are relative to the complete recording,
+    not just individual chunks.
+    """
+
+    model = load_model()
+
+    all_segments = []
+
+    print("Using Whisper for timestamped transcription.")
+    print(f"Whisper device: {DEVICE.upper()}")
+
+    for i, chunk in enumerate(chunks):
+
+        print(f"Transcribing chunk {i + 1}/{len(chunks)}...")
+
+        result = model.transcribe(
+            chunk,
+            task="transcribe",
+            fp16=USE_FP16
+        )
+
+        # Each chunk starts at a different position
+        # in the original recording.
+        offset = i * chunk_duration_seconds
+
+        for segment in result["segments"]:
+
+            all_segments.append({
+                "start": segment["start"] + offset,
+                "end": segment["end"] + offset,
+                "text": segment["text"].strip()
+            })
+
+    print("Timestamped transcription complete.")
+
+    return all_segments

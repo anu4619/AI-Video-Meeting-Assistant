@@ -40,19 +40,17 @@ def download_youtube_audio(url: str) -> str:
 
 # Convert local audio/video to WAV
 def convert_to_wav(input_path: str) -> str:
-
-    output_path = (
-        os.path.splitext(input_path)[0] + "_converted.wav"
+    filename = os.path.splitext(os.path.basename(input_path))[0]
+    output_path = os.path.join(
+        DOWNLOAD_DIR,
+        f"{filename}_converted.wav"
     )
 
     audio = AudioSegment.from_file(input_path)
-
     audio = audio.set_channels(1).set_frame_rate(16000)
-
     audio.export(output_path, format="wav")
 
     return output_path
-
 
 # Audio enhancement and noise reduction
 def enhance_audio(input_path: str) -> str:
@@ -116,28 +114,46 @@ def chunk_audio(wav_path: str, chunk_minutes: int = 10) -> list:
 
 
 # Main audio processing pipeline
-def process_input(source: str) -> list:
+
+def process_input(source: str, return_audio_path: bool = False):
 
     if source.startswith(("http://", "https://")):
 
         print("Detected YouTube URL. Downloading audio...")
-
         wav_path = download_youtube_audio(source)
 
     else:
 
-        print("Detected local file. Converting to WAV...")
+        if not os.path.isfile(source):
+            raise FileNotFoundError(
+                f"Input recording not found: {source}"
+            )
 
+        print("Detected local file. Converting to WAV...")
         wav_path = convert_to_wav(source)
 
-    # Apply noise reduction and audio enhancement
+    if not os.path.isfile(wav_path):
+        raise FileNotFoundError(
+            f"Converted WAV file not found: {wav_path}"
+        )
+
     enhanced_path = enhance_audio(wav_path)
 
-    # Split enhanced audio into chunks
+    if not os.path.isfile(enhanced_path):
+        raise FileNotFoundError(
+            f"Enhanced audio not found: {enhanced_path}"
+        )
+
     print("Chunking audio...")
 
     chunks = chunk_audio(enhanced_path)
 
+    if not chunks:
+        raise ValueError("No audio chunks were generated.")
+
     print(f"Audio ready — {len(chunks)} chunk(s) created.")
+
+    if return_audio_path:
+        return chunks, enhanced_path
 
     return chunks
