@@ -2,7 +2,7 @@
 from dotenv import load_dotenv
 
 from utils.audio_processor import process_input
-
+from evaluation.rag_evaluation import evaluate_rag
 from core.transcriber import (
     transcribe_all,
     transcribe_all_with_timestamps
@@ -192,7 +192,36 @@ if __name__ == "__main__":
 
     # 6. Interactive RAG session
     rag_chain = result["rag_chain"]
+    choice = input(
+    "\nDo you want to evaluate RAG using RAGAS? (yes/no): "
+).strip().lower()
 
+if choice == "yes":
+
+    test_questions = [
+        {
+            "question": "What were the main decisions made during the meeting?",
+            "reference": "Replace with the actual answer from your transcript."
+        },
+        {
+            "question": "What was the agreed project deadline?",
+            "reference": "Replace with the actual answer from your transcript."
+        },
+        {
+            "question": "What tasks were assigned to the team?",
+            "reference": "Replace with the actual answer from your transcript."
+        },
+        {
+            "question": "What challenges were discussed?",
+            "reference": "Replace with the actual answer from your transcript."
+        },
+        {
+            "question": "What was decided about the project budget?",
+            "reference": "Replace with the actual answer from your transcript."
+        }
+    ]
+
+    evaluate_rag(rag_chain, test_questions)
     print("\n========== CHAT WITH YOUR RECORDING ==========")
     print("Ask any question about the recording.")
     print("Type 'exit' to end the conversation.\n")
