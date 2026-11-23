@@ -1,12 +1,21 @@
+
 import yt_dlp
 from pydub import AudioSegment
 import os
-DOWNLOAD_DIR= 'downloads'
+import subprocess
+
+DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-#capturing the audio of a youtube video in wav fromat using yt_dlp
-def download_youtube_audio(url : str)->str:
-    output_path = os.path.join(DOWNLOAD_DIR, "%(title)s.%(ext)s")
+
+# Download YouTube audio
+def download_youtube_audio(url: str) -> str:
+
+    output_path = os.path.join(
+        DOWNLOAD_DIR,
+        "%(title)s.%(ext)s"
+    )
+
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": output_path,
@@ -14,55 +23,121 @@ def download_youtube_audio(url : str)->str:
             {
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "wav",
-                "preferredquality": "192",
             }
         ],
         "quiet": True,
     }
+
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info).replace(".webm", ".wav").replace(".m4a", ".wav")
+
+        filename = os.path.splitext(
+            ydl.prepare_filename(info)
+        )[0] + ".wav"
+
     return filename
 
-#data = download_youtube_audio('https://www.youtube.com/watch?v=XN3xNJvWXsc')
 
-
+# Convert local audio/video to WAV
 def convert_to_wav(input_path: str) -> str:
-    """Convert any audio/video file to WAV format using pydub."""
-    output_path = os.path.splitext(input_path)[0] + "_converted.wav" 
-    audio = AudioSegment.from_file(input_path) #detecting and converting any form like .mp3, .mp4 to wav
-    audio = audio.set_channels(1).set_frame_rate(16000) #16khz #dual audio converted into mono(so that same audio speed in both earphones)
+
+    output_path = (
+        os.path.splitext(input_path)[0] + "_converted.wav"
+    )
+
+    audio = AudioSegment.from_file(input_path)
+
+    audio = audio.set_channels(1).set_frame_rate(16000)
+
     audio.export(output_path, format="wav")
+
     return output_path
 
-#data_final = convert_to_wav(data)
 
-def chunk_audio(wav_path : str , chunk_minutes : int = 10) -> list:
+# Audio enhancement and noise reduction
+def enhance_audio(input_path: str) -> str:
+
+    print("Enhancing audio and reducing background noise...")
+
+    output_path = (
+        os.path.splitext(input_path)[0] + "_enhanced.wav"
+    )
+
+    audio_filters = (
+        "highpass=f=80,"
+        "lowpass=f=7600,"
+        "afftdn=nr=10:nf=-25,"
+        "loudnorm=I=-20:TP=-2:LRA=11"
+    )
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i", input_path,
+        "-af", audio_filters,
+        "-ac", "1",
+        "-ar", "16000",
+        "-c:a", "pcm_s16le",
+        output_path
+    ]
+
+    subprocess.run(
+        command,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE
+    )
+
+    print("Audio enhancement completed.")
+
+    return output_path
+
+
+# Split audio into chunks
+def chunk_audio(wav_path: str, chunk_minutes: int = 10) -> list:
+
     audio = AudioSegment.from_wav(wav_path)
-    chunk_ms = chunk_minutes * 60 * 1000 #in ms
 
-    chunks = [] #storing all the video chunks
+    chunk_ms = chunk_minutes * 60 * 1000
 
-    for i, start in enumerate(range(0,len(audio),chunk_ms)): #chunk larger videos into chunks of 10 min videos
-        chunk = audio[start : start + chunk_ms] #from 0th ms to 600000 ms(10mins)
-        chunk_path = f"{wav_path}_chunk_{i}.wav" #adding .wav to all
-        chunk.export(chunk_path , format = "wav")
+    chunks = []
+
+    for i, start in enumerate(range(0, len(audio), chunk_ms)):
+
+        chunk = audio[start:start + chunk_ms]
+
+        chunk_path = f"{wav_path}_chunk_{i}.wav"
+
+        chunk.export(chunk_path, format="wav")
 
         chunks.append(chunk_path)
-    
+
     return chunks
 
-#print(chunk_audio(data_final))
 
+# Main audio processing pipeline
 def process_input(source: str) -> list:
-    if source.startswith("http://") or source.startswith("https://"):
-        print("Detected YouTube URL. Downloading audio...")
-        wav_path = download_youtube_audio(source)
-    else:
-        print("Detected local file. Converting to WAV...") 
-        wav_path = convert_to_wav(source)  #processing local files
 
+    if source.startswith(("http://", "https://")):
+
+        print("Detected YouTube URL. Downloading audio...")
+
+        wav_path = download_youtube_audio(source)
+
+    else:
+
+        print("Detected local file. Converting to WAV...")
+
+        wav_path = convert_to_wav(source)
+
+    # Apply noise reduction and audio enhancement
+    enhanced_path = enhance_audio(wav_path)
+
+    # Split enhanced audio into chunks
     print("Chunking audio...")
-    chunks = chunk_audio(wav_path)
+
+    chunks = chunk_audio(enhanced_path)
+
     print(f"Audio ready — {len(chunks)} chunk(s) created.")
+
     return chunks

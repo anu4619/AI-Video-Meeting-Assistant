@@ -1,0 +1,42 @@
+[
+    {
+        "case": "Original Audio",
+        "wer": 11.627906976744185,
+        "time": 22.089744399999745,
+        "substitutions": 4,
+        "deletions": 4,
+        "insertions": 2,
+        "reference_words": 86,
+        "transcript": "What's good people I'm here in Times Square New York We're gonna try the voice cleaner and see how quiet we can get I'm recording some audio There's a massive hot dog right here Pretty crazy a lot of traffic, but we're gonna see how voice cleaner is gonna do it Now let's apply voice cleaner. I'm recording some audio. There's a massive hot dog right here Pretty crazy a lot of traffic, so we're gonna see how voice cleaner is gonna do it"
+    },
+    {
+        "case": "FFmpeg Enhanced",
+        "wer": 20.930232558139537,
+        "time": 14.334779300000264,
+        "substitutions": 5,
+        "deletions": 10,
+        "insertions": 3,
+        "reference_words": 86,
+        "transcript": "What's good people I'm here in Times Square in New York We're gonna try the voice cleaner and see how quiet we can get I'm recording some audio Pretty crazy a lot of traffic, but we're gonna see how it was cleaner is gonna do it now Let's apply voice cleaner. I'm recording some audio. There's a massive hot dog right here Pretty crazy a lot of traffic, so we're gonna see how voice cleaner is gonna do it"
+    },
+    {
+        "case": "DeepFilterNet Enhanced",
+        "wer": 20.930232558139537,
+        "time": 13.42131739999968,
+        "substitutions": 6,
+        "deletions": 11,
+        "insertions": 1,
+        "reference_words": 86,
+        "transcript": "What's good people I'm here in Times Square in New York We're gonna try the voice cleaner and see how quiet we can get recording some audio massive Pretty crazy lot of traffic, but we're gonna see how those cleaners gonna do it now. Let's apply voice cleaner I'm recording some audio. There's a massive hot dog right here Pretty crazy a lot of traffic, so we're gonna see how voice cleaner is gonna do it"
+    },
+    {
+        "case": "Original + DeepFilterNet",
+        "wer": 19.767441860465116,
+        "time": 15.49764469999991,
+        "substitutions": 4,
+        "deletions": 11,
+        "insertions": 2,
+        "reference_words": 86,
+        "transcript": "What's good people I'm here in Times Square in New York We're gonna try the voice cleaner and see how quiet we can get Recording some audio Pretty crazy a lot of traffic, but we're gonna see how voice cleaner is gonna do it now Let's apply voice cleaner. I'm recording some audio. There's a massive hot dog right here Pretty crazy a lot of traffic, so we're gonna see how voice cleaner is gonna do it"
+    }
+]
