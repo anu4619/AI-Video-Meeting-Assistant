@@ -1,54 +1,168 @@
 
-import os
-import torch
+from dotenv import load_dotenv
+load_dotenv()
 import whisper
+import os
+import requests
+import torch
+from pydub import AudioSegment
+
+# Sarvam sync API accepts audio up to 30 seconds.
+SARVAM_PIECE_SECONDS = 25
 
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
 
+SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
+SARVAM_STT_TRANSLATE_URL = "https://api.sarvam.ai/speech-to-text-translate"
+SARVAM_MODEL = os.getenv("SARVAM_STT_MODEL", "saaras:v2.5")
+
+# Automatically select GPU if CUDA is available.
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+# FP16 is supported on CUDA, but not CPU.
+USE_FP16 = DEVICE == "cuda"
 
 _model = None
 
+
 def load_model():
+
     global _model
 
     if _model is None:
-        print(f"Loading Whisper {WHISPER_MODEL} on {DEVICE}...", flush=True)
+        print(f"Loading Whisper model: {WHISPER_MODEL} on {DEVICE.upper()}...")
 
         _model = whisper.load_model(
             WHISPER_MODEL,
             device=DEVICE
         )
 
-        print("Whisper model loaded successfully!", flush=True)
+        print("Whisper model loaded successfully.")
+
+        if DEVICE == "cuda":
+            print(f"GPU: {torch.cuda.get_device_name(0)}")
 
     return _model
 
 
-def transcribe_chunk(chunk_path: str, translate: bool = False) -> str:
-    model = load_model()
+def transcribe_chunk_whisper(chunk_path: str) -> str:
 
-    task = "translate" if translate else "transcribe"
+    model = load_model()
 
     result = model.transcribe(
         chunk_path,
-        task=task,
-        fp16=(DEVICE == "cuda"),
-        verbose=True
+        task="transcribe",
+        fp16=USE_FP16
     )
 
     return result["text"]
 
 
-def transcribe_all(chunks: list, translate: bool = False):
+def _send_to_sarvam(piece_path: str) -> str:
+
+    """Send one ≤30s WAV file to Sarvam and return the English transcript."""
+
+    headers = {"api-subscription-key": SARVAM_API_KEY}
+
+    with open(piece_path, "rb") as f:
+
+        files = {
+            "file": (os.path.basename(piece_path), f, "audio/wav")
+        }
+
+        data = {
+            "model": SARVAM_MODEL,
+            "with_diarization": "false"
+        }
+
+        response = requests.post(
+            SARVAM_STT_TRANSLATE_URL,
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=120,
+        )
+
+    if not response.ok:
+        print(f"\nSarvam returned {response.status_code}")
+        print(f"Response body: {response.text}\n")
+        response.raise_for_status()
+
+    return response.json().get("transcript", "")
+
+
+def transcribe_chunk_sarvam(chunk_path: str) -> str:
+
+    """
+    Split audio into 25-second pieces and send each to Sarvam.
+    Sarvam translates the speech into English.
+    """
+
+    if not SARVAM_API_KEY:
+        raise RuntimeError(
+            "SARVAM_API_KEY is not set in environment / .env"
+        )
+
+    audio = AudioSegment.from_wav(chunk_path)
+    piece_ms = SARVAM_PIECE_SECONDS * 1000
+
+    full_text = ""
+
+    total_pieces = (len(audio) + piece_ms - 1) // piece_ms
+
+    for i, start in enumerate(range(0, len(audio), piece_ms)):
+
+        piece = audio[start: start + piece_ms]
+        piece_path = f"{chunk_path}_sv_{i}.wav"
+
+        piece.export(piece_path, format="wav")
+
+        try:
+            print(f"  → Sarvam piece {i + 1}/{total_pieces} ...")
+
+            full_text += _send_to_sarvam(piece_path) + " "
+
+        finally:
+            if os.path.exists(piece_path):
+                os.remove(piece_path)
+
+    return full_text.strip()
+
+
+def transcribe_chunk(chunk_path: str, language: str = "english") -> str:
+
+    """
+    Route one chunk to Whisper or Sarvam.
+
+    english  → Whisper on local GPU (if available)
+    hinglish → Sarvam cloud API
+    """
+
+    if language.lower() == "hinglish":
+        return transcribe_chunk_sarvam(chunk_path)
+
+    return transcribe_chunk_whisper(chunk_path)
+
+
+def transcribe_all(chunks: list, language: str = "english") -> str:
+
     full_transcript = ""
 
-    for i, chunk in enumerate(chunks):
-        print(f"Transcribing chunk {i+1}/{len(chunks)}", flush=True)
+    engine = "Sarvam AI" if language.lower() == "hinglish" else "Whisper"
 
-        text = transcribe_chunk(chunk, translate=translate)
+    print(f"Using {engine} for transcription.")
+
+    if language.lower() != "hinglish":
+        print(f"Whisper device: {DEVICE.upper()}")
+
+    for i, chunk in enumerate(chunks):
+
+        print(f"Transcribing chunk {i + 1}/{len(chunks)}...")
+
+        text = transcribe_chunk(chunk, language=language)
+
         full_transcript += text + " "
 
-    print("Transcription completed!", flush=True)
+    print("Transcription complete.")
 
-    return full_transcript
+    return full_transcript.strip()
